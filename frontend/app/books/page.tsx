@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, BookOpen, User } from "lucide-react"
+import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,8 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-
-const API_BASE_URL = "http://localhost:8080/book-service/api"
+import { Header } from "@/components/Header"
+import { API_ENDPOINTS } from "@/lib/api-config"
 
 interface Author {
   id: number
@@ -66,14 +65,15 @@ export default function BooksPage() {
 
   const fetchBooks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/books`)
+      const response = await fetch(API_ENDPOINTS.books.list)
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`)
       const data = await response.json()
       setBooks(data)
     } catch (error) {
-      console.error("[v0] Error fetching books:", error)
+      console.error("Erreur lors du chargement des livres:", error)
       toast({
-        title: "Error",
-        description: "Failed to fetch books",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Échec du chargement des livres",
         variant: "destructive",
       })
     } finally {
@@ -83,18 +83,19 @@ export default function BooksPage() {
 
   const fetchAuthors = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/authors`)
+      const response = await fetch(API_ENDPOINTS.authors.list)
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`)
       const data = await response.json()
       setAuthors(data)
     } catch (error) {
-      console.error("[v0] Error fetching authors:", error)
+      console.error("Erreur lors du chargement des auteurs:", error)
     }
   }
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const url = editingBook ? `${API_BASE_URL}/books/${editingBook.id}` : `${API_BASE_URL}/books`
+      const url = editingBook ? API_ENDPOINTS.books.update(editingBook.id) : API_ENDPOINTS.books.create
       const method = editingBook ? "PUT" : "POST"
 
       const response = await fetch(url, {
@@ -107,28 +108,21 @@ export default function BooksPage() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Book ${editingBook ? "updated" : "created"} successfully`,
-        })
+        toast({ title: "Succès", description: `Livre ${editingBook ? "modifié" : "créé"} avec succès` })
         setDialogOpen(false)
         resetBookForm()
         fetchBooks()
       }
     } catch (error) {
-      console.error("[v0] Error saving book:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save book",
-        variant: "destructive",
-      })
+      console.error("Erreur lors de l'enregistrement:", error)
+      toast({ title: "Erreur", description: "Échec de l'enregistrement du livre", variant: "destructive" })
     }
   }
 
   const handleAuthorSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const url = editingAuthor ? `${API_BASE_URL}/authors/${editingAuthor.id}` : `${API_BASE_URL}/authors`
+      const url = editingAuthor ? API_ENDPOINTS.authors.update(editingAuthor.id) : API_ENDPOINTS.authors.create
       const method = editingAuthor ? "PUT" : "POST"
 
       const response = await fetch(url, {
@@ -138,89 +132,52 @@ export default function BooksPage() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Author ${editingAuthor ? "updated" : "created"} successfully`,
-        })
+        toast({ title: "Succès", description: `Auteur ${editingAuthor ? "modifié" : "créé"} avec succès` })
         setAuthorDialogOpen(false)
         resetAuthorForm()
         fetchAuthors()
       }
     } catch (error) {
-      console.error("[v0] Error saving author:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save author",
-        variant: "destructive",
-      })
+      console.error("Erreur lors de l'enregistrement:", error)
+      toast({ title: "Erreur", description: "Échec de l'enregistrement de l'auteur", variant: "destructive" })
     }
   }
 
   const handleDeleteBook = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this book?")) return
-
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce livre ?")) return
     try {
-      const response = await fetch(`${API_BASE_URL}/books/${id}`, {
-        method: "DELETE",
-      })
-
+      const response = await fetch(API_ENDPOINTS.books.delete(id), { method: "DELETE" })
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Book deleted successfully",
-        })
+        toast({ title: "Succès", description: "Livre supprimé avec succès" })
         fetchBooks()
       }
     } catch (error) {
-      console.error("[v0] Error deleting book:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete book",
-        variant: "destructive",
-      })
+      console.error("Erreur lors de la suppression:", error)
+      toast({ title: "Erreur", description: "Échec de la suppression du livre", variant: "destructive" })
     }
   }
 
   const handleDeleteAuthor = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this author?")) return
-
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet auteur ?")) return
     try {
-      const response = await fetch(`${API_BASE_URL}/authors/${id}`, {
-        method: "DELETE",
-      })
-
+      const response = await fetch(API_ENDPOINTS.authors.delete(id), { method: "DELETE" })
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Author deleted successfully",
-        })
+        toast({ title: "Succès", description: "Auteur supprimé avec succès" })
         fetchAuthors()
       }
     } catch (error) {
-      console.error("[v0] Error deleting author:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete author",
-        variant: "destructive",
-      })
+      console.error("Erreur lors de la suppression:", error)
+      toast({ title: "Erreur", description: "Échec de la suppression de l'auteur", variant: "destructive" })
     }
   }
 
   const resetBookForm = () => {
-    setBookForm({
-      title: "",
-      isbn: "",
-      publicationYear: new Date().getFullYear(),
-      authorId: "",
-    })
+    setBookForm({ title: "", isbn: "", publicationYear: new Date().getFullYear(), authorId: "" })
     setEditingBook(null)
   }
 
   const resetAuthorForm = () => {
-    setAuthorForm({
-      name: "",
-      nationality: "",
-    })
+    setAuthorForm({ name: "", nationality: "" })
     setEditingAuthor(null)
   }
 
@@ -241,10 +198,7 @@ export default function BooksPage() {
 
   const openAuthorDialog = (author?: Author) => {
     if (author) {
-      setAuthorForm({
-        name: author.name,
-        nationality: author.nationality,
-      })
+      setAuthorForm({ name: author.name, nationality: author.nationality })
       setEditingAuthor(author)
     } else {
       resetAuthorForm()
@@ -254,70 +208,42 @@ export default function BooksPage() {
 
   const getAuthorName = (authorId: number) => {
     const author = authors.find((a) => a.id === authorId)
-    return author?.name || "Unknown Author"
+    return author?.name || "Inconnu"
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">Library Management</h1>
-            </Link>
-            <nav className="flex items-center gap-4">
-              <Link href="/books">
-                <Button variant="default">Books</Button>
-              </Link>
-              <Link href="/loans">
-                <Button variant="ghost">Loans</Button>
-              </Link>
-              <Link href="/recommendations">
-                <Button variant="ghost">Recommendations</Button>
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <Header activePage="books" />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground mb-2">Books & Authors</h2>
-            <p className="text-muted-foreground">Manage your book catalog and author information</p>
-          </div>
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-foreground mb-1">Livres & Auteurs</h2>
+          <p className="text-sm text-muted-foreground">Gérez votre catalogue</p>
         </div>
 
-        {/* Authors Section */}
-        <Card className="mb-8">
+        {/* Section Auteurs */}
+        <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Authors
-                </CardTitle>
-                <CardDescription>Manage author information</CardDescription>
+                <CardTitle className="text-base">Auteurs</CardTitle>
+                <CardDescription>Gérer les informations des auteurs</CardDescription>
               </div>
               <Dialog open={authorDialogOpen} onOpenChange={setAuthorDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => openAuthorDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Author
+                  <Button size="sm" onClick={() => openAuthorDialog()}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>{editingAuthor ? "Edit Author" : "Add New Author"}</DialogTitle>
-                    <DialogDescription>
-                      {editingAuthor ? "Update the author information" : "Enter the details for the new author"}
-                    </DialogDescription>
+                    <DialogTitle>{editingAuthor ? "Modifier l'auteur" : "Ajouter un auteur"}</DialogTitle>
+                    <DialogDescription>Entrez les détails de l'auteur</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAuthorSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="name">Name</Label>
+                      <Label htmlFor="name">Nom</Label>
                       <Input
                         id="name"
                         value={authorForm.name}
@@ -326,7 +252,7 @@ export default function BooksPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="nationality">Nationality</Label>
+                      <Label htmlFor="nationality">Nationalité</Label>
                       <Input
                         id="nationality"
                         value={authorForm.nationality}
@@ -335,19 +261,8 @@ export default function BooksPage() {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button type="submit" className="flex-1">
-                        {editingAuthor ? "Update" : "Create"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setAuthorDialogOpen(false)
-                          resetAuthorForm()
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                      <Button type="submit" className="flex-1">{editingAuthor ? "Modifier" : "Créer"}</Button>
+                      <Button type="button" variant="outline" onClick={() => { setAuthorDialogOpen(false); resetAuthorForm() }}>Annuler</Button>
                     </div>
                   </form>
                 </DialogContent>
@@ -355,59 +270,50 @@ export default function BooksPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
               {authors.map((author) => (
-                <Card key={author.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="font-semibold text-foreground">{author.name}</h4>
-                        <p className="text-sm text-muted-foreground">{author.nationality}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openAuthorDialog(author)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDeleteAuthor(author.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div key={author.id} className="flex items-center justify-between p-3 border rounded-md">
+                  <div>
+                    <p className="font-medium text-sm">{author.name}</p>
+                    <p className="text-xs text-muted-foreground">{author.nationality}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openAuthorDialog(author)}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDeleteAuthor(author.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Books Section */}
+        {/* Section Livres */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Books
-                </CardTitle>
-                <CardDescription>Manage your book catalog</CardDescription>
+                <CardTitle className="text-base">Livres</CardTitle>
+                <CardDescription>Gérer votre catalogue de livres</CardDescription>
               </div>
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => openBookDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Book
+                  <Button size="sm" onClick={() => openBookDialog()}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>{editingBook ? "Edit Book" : "Add New Book"}</DialogTitle>
-                    <DialogDescription>
-                      {editingBook ? "Update the book information" : "Enter the details for the new book"}
-                    </DialogDescription>
+                    <DialogTitle>{editingBook ? "Modifier le livre" : "Ajouter un livre"}</DialogTitle>
+                    <DialogDescription>Entrez les détails du livre</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleBookSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="title">Title</Label>
+                      <Label htmlFor="title">Titre</Label>
                       <Input
                         id="title"
                         value={bookForm.title}
@@ -425,7 +331,7 @@ export default function BooksPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="publicationYear">Publication Year</Label>
+                      <Label htmlFor="publicationYear">Année</Label>
                       <Input
                         id="publicationYear"
                         type="number"
@@ -435,38 +341,21 @@ export default function BooksPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="authorId">Author</Label>
-                      <Select
-                        value={bookForm.authorId}
-                        onValueChange={(value) => setBookForm({ ...bookForm, authorId: value })}
-                        required
-                      >
+                      <Label htmlFor="authorId">Auteur</Label>
+                      <Select value={bookForm.authorId} onValueChange={(value) => setBookForm({ ...bookForm, authorId: value })} required>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select an author" />
+                          <SelectValue placeholder="Sélectionner un auteur" />
                         </SelectTrigger>
                         <SelectContent>
                           {authors.map((author) => (
-                            <SelectItem key={author.id} value={author.id.toString()}>
-                              {author.name}
-                            </SelectItem>
+                            <SelectItem key={author.id} value={author.id.toString()}>{author.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="flex gap-2">
-                      <Button type="submit" className="flex-1">
-                        {editingBook ? "Update" : "Create"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setDialogOpen(false)
-                          resetBookForm()
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                      <Button type="submit" className="flex-1">{editingBook ? "Modifier" : "Créer"}</Button>
+                      <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetBookForm() }}>Annuler</Button>
                     </div>
                   </form>
                 </DialogContent>
@@ -475,32 +364,29 @@ export default function BooksPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading books...</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">Chargement...</div>
             ) : books.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No books available. Add your first book!</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">Aucun livre</div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {books.map((book) => (
-                  <Card key={book.id}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-foreground mb-1 text-balance">{book.title}</h4>
-                          <p className="text-sm text-muted-foreground mb-1">by {getAuthorName(book.authorId)}</p>
-                          <p className="text-xs text-muted-foreground">ISBN: {book.isbn}</p>
-                          <p className="text-xs text-muted-foreground">Published: {book.publicationYear}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => openBookDialog(book)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDeleteBook(book.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
+                  <div key={book.id} className="p-4 border rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm truncate">{book.title}</h4>
+                        <p className="text-xs text-muted-foreground">par {getAuthorName(book.authorId)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">ISBN: {book.isbn} · {book.publicationYear}</p>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex gap-1 ml-2">
+                        <Button size="sm" variant="ghost" onClick={() => openBookDialog(book)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleDeleteBook(book.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

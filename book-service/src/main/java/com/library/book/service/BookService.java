@@ -23,12 +23,19 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public List<Book> getAllBooks() {
-        return bookRepository.findAll();
+        return bookRepository.findAllWithAuthor();
     }
 
     @Transactional(readOnly = true)
     public Optional<Book> getBookById(Long id) {
-        return bookRepository.findById(id);
+        Optional<Book> result = bookRepository.findById(id);
+        result.ifPresent(book -> {
+            if (book.getAuthor() != null) {
+                book.setAuthorId(book.getAuthor().getId());
+                book.setAuthorName(book.getAuthor().getName());
+            }
+        });
+        return result;
     }
 
     public Book createBook(Book book) {

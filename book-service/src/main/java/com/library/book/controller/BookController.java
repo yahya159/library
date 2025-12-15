@@ -5,6 +5,7 @@ import com.library.book.service.BookService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -24,7 +25,8 @@ public class BookController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Book> getBookById(@PathVariable Long id) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<Book> getBookById(@PathVariable("id") Long id) {
         return bookService.getBookById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -40,14 +42,14 @@ public class BookController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Book> updateBook(@PathVariable Long id, @Valid @RequestBody Book bookDetails) {
+    public ResponseEntity<Book> updateBook(@PathVariable("id") Long id, @Valid @RequestBody Book bookDetails) {
         return bookService.updateBook(id, bookDetails)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long id) {
         if (bookService.deleteBook(id)) {
             return ResponseEntity.ok().build();
         }
@@ -55,7 +57,7 @@ public class BookController {
     }
 
     @GetMapping("/author/{authorId}")
-    public List<Book> getBooksByAuthor(@PathVariable Long authorId) {
+    public List<Book> getBooksByAuthor(@PathVariable("authorId") Long authorId) {
         return bookService.getBooksByAuthor(authorId);
     }
 }

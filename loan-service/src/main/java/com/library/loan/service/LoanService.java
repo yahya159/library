@@ -5,8 +5,6 @@ import com.library.loan.dto.BookDTO;
 import com.library.loan.dto.LoanWithBookDTO;
 import com.library.loan.entity.Loan;
 import com.library.loan.repository.LoanRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,8 +17,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class LoanService {
 
-    private static final Logger log = LoggerFactory.getLogger(LoanService.class);
-
     private final LoanRepository loanRepository;
     private final BookClient bookClient;
 
@@ -31,7 +27,6 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public List<LoanWithBookDTO> getAllLoans() {
-        log.debug("Fetching all loans");
         return loanRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -39,37 +34,32 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public Optional<LoanWithBookDTO> getLoanById(Long id) {
-        log.debug("Fetching loan with id: {}", id);
         return loanRepository.findById(id).map(this::convertToDTO);
     }
 
     @Transactional(readOnly = true)
     public List<LoanWithBookDTO> getActiveLoans() {
-        log.debug("Fetching active loans");
         return loanRepository.findByReturnedFalse().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
     public Loan createLoan(Loan loan) {
-        log.info("Creating loan for book {} by {}", loan.getBookId(), loan.getBorrowerName());
-        
         try {
             BookDTO book = bookClient.getBookById(loan.getBookId());
             if (book == null) {
-                log.warn("Book with id {} not found", loan.getBookId());
                 return null;
             }
-        } catch (Exception e) {
-            log.error("Error verifying book {}: {}", loan.getBookId(), e.getMessage());
+        } catch (feign.FeignException.NotFound e) {
             return null;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to verify book: " + e.getMessage(), e);
         }
         
         loan.setLoanDate(LocalDate.now());
+        loan.setDueDate(loan.getLoanDate().plusDays(14));
         loan.setReturned(false);
-        Loan savedLoan = loanRepository.save(loan);
-        log.info("Loan created with id: {}", savedLoan.getId());
-        return savedLoan;
+        return loanRepository.save(loan);
     }
 
     public Optional<Loan> returnBook(Long id) {
@@ -100,7 +90,6 @@ public class LoanService {
         try {
             book = bookClient.getBookById(loan.getBookId());
         } catch (Exception e) {
-            log.warn("Could not fetch book {} for loan {}: {}", loan.getBookId(), loan.getId(), e.getMessage());
         }
         return new LoanWithBookDTO(loan, book);
     }

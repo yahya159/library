@@ -1,5 +1,5 @@
 server:
-  port: 8083
+  port: ${SERVER_PORT:8083}
 
 spring:
   application:
@@ -9,3 +9,16 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+      book-service:
+        url: ${BOOK_SERVICE_URL:http://localhost:8081}
+        connectTimeout: 5000
+        readTimeout: 5000

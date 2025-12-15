@@ -1,5 +1,6 @@
 package com.library.book.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "authors")
+@JsonIgnoreProperties({"books"})
 public class Author {
 
     @Id

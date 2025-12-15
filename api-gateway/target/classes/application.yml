@@ -1,26 +1,39 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: api-gateway
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: ${CORS_ORIGIN:http://localhost:3000}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
       routes:
         - id: book-service
-          uri: lb://book-service
+          uri: ${BOOK_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/book-service/**
           filters:
             - StripPrefix=1
         - id: loan-service
-          uri: lb://loan-service
+          uri: ${LOAN_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/loan-service/**
           filters:
             - StripPrefix=1
         - id: recommendation-service
-          uri: lb://recommendation-service
+          uri: ${RECOMMENDATION_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/recommendation-service/**
           filters:
@@ -29,4 +42,6 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

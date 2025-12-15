@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Plus, RotateCcw, BookOpen, Calendar } from "lucide-react"
+import { Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,11 +18,8 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-
-const LOAN_API_URL = "http://localhost:8080/loan-service/api/loans"
-const BOOK_API_URL = "http://localhost:8080/book-service/api/books"
+import { Header } from "@/components/Header"
+import { API_ENDPOINTS } from "@/lib/api-config"
 
 interface Loan {
   id: number
@@ -58,15 +55,17 @@ export default function LoansPage() {
 
   const fetchLoans = async () => {
     try {
-      const url = showActive ? `${LOAN_API_URL}/active` : LOAN_API_URL
+      const url = showActive ? API_ENDPOINTS.loans.active : API_ENDPOINTS.loans.list
       const response = await fetch(url)
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`)
       const data = await response.json()
-      setLoans(data)
+      setLoans(Array.isArray(data) ? data : [])
     } catch (error) {
-      console.error("[v0] Error fetching loans:", error)
+      console.error("Erreur lors du chargement des emprunts:", error)
+      setLoans([])
       toast({
-        title: "Error",
-        description: "Failed to fetch loans",
+        title: "Erreur",
+        description: `Échec du chargement des emprunts: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         variant: "destructive",
       })
     } finally {
@@ -76,193 +75,134 @@ export default function LoansPage() {
 
   const fetchBooks = async () => {
     try {
-      const response = await fetch(BOOK_API_URL)
+      const response = await fetch(API_ENDPOINTS.books.list)
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`)
       const data = await response.json()
-      setBooks(data)
+      setBooks(Array.isArray(data) ? data : [])
     } catch (error) {
-      console.error("[v0] Error fetching books:", error)
+      console.error("Erreur lors du chargement des livres:", error)
+      setBooks([])
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const bookIdNum = Number.parseInt(loanForm.bookId)
+    if (isNaN(bookIdNum)) {
+      toast({ title: "Erreur", description: "Veuillez sélectionner un livre valide", variant: "destructive" })
+      return
+    }
+    if (!loanForm.borrowerName.trim()) {
+      toast({ title: "Erreur", description: "Le nom de l'emprunteur est requis", variant: "destructive" })
+      return
+    }
+
     try {
-      const response = await fetch(LOAN_API_URL, {
+      const response = await fetch(API_ENDPOINTS.loans.create, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookId: Number.parseInt(loanForm.bookId),
-          borrowerName: loanForm.borrowerName,
-        }),
+        body: JSON.stringify({ bookId: bookIdNum, borrowerName: loanForm.borrowerName.trim() }),
       })
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Loan created successfully",
-        })
-        setDialogOpen(false)
-        resetForm()
-        fetchLoans()
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || "Échec de la création de l'emprunt")
       }
+
+      toast({ title: "Succès", description: "Emprunt créé avec succès" })
+      setDialogOpen(false)
+      resetForm()
+      fetchLoans()
     } catch (error) {
-      console.error("[v0] Error creating loan:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create loan",
-        variant: "destructive",
-      })
+      console.error("Erreur lors de la création:", error)
+      toast({ title: "Erreur", description: error instanceof Error ? error.message : "Échec de la création", variant: "destructive" })
     }
   }
 
   const handleReturn = async (id: number) => {
     try {
-      const response = await fetch(`${LOAN_API_URL}/${id}/return`, {
-        method: "PUT",
-      })
-
+      const response = await fetch(API_ENDPOINTS.loans.return(id), { method: "PUT" })
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Book returned successfully",
-        })
+        toast({ title: "Succès", description: "Livre retourné avec succès" })
         fetchLoans()
       }
     } catch (error) {
-      console.error("[v0] Error returning book:", error)
-      toast({
-        title: "Error",
-        description: "Failed to return book",
-        variant: "destructive",
-      })
+      console.error("Erreur lors du retour:", error)
+      toast({ title: "Erreur", description: "Échec du retour du livre", variant: "destructive" })
     }
   }
 
-  const resetForm = () => {
-    setLoanForm({
-      bookId: "",
-      borrowerName: "",
-    })
-  }
+  const resetForm = () => setLoanForm({ bookId: "", borrowerName: "" })
+  const getBookTitle = (bookId: number) => books.find((b) => b.id === bookId)?.title || "Inconnu"
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
+  const isOverdue = (dueDate: string, returnDate?: string) => !returnDate && new Date(dueDate) < new Date()
 
-  const getBookTitle = (bookId: number) => {
-    const book = books.find((b) => b.id === bookId)
-    return book?.title || "Unknown Book"
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  }
-
-  const isOverdue = (dueDate: string, returnDate?: string) => {
-    if (returnDate) return false
-    return new Date(dueDate) < new Date()
+  const getStatus = (loan: Loan) => {
+    if (loan.returnDate) return { label: "Retourné", className: "text-muted-foreground" }
+    if (isOverdue(loan.dueDate)) return { label: "En retard", className: "text-destructive" }
+    return { label: "Actif", className: "text-foreground" }
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">Library Management</h1>
-            </Link>
-            <nav className="flex items-center gap-4">
-              <Link href="/books">
-                <Button variant="ghost">Books</Button>
-              </Link>
-              <Link href="/loans">
-                <Button variant="default">Loans</Button>
-              </Link>
-              <Link href="/recommendations">
-                <Button variant="ghost">Recommendations</Button>
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <Header activePage="loans" />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground mb-2">Loan Management</h2>
-            <p className="text-muted-foreground">Track book loans and manage returns</p>
-          </div>
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-foreground mb-1">Emprunts</h2>
+          <p className="text-sm text-muted-foreground">Suivez les emprunts et les retours</p>
         </div>
 
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Active Loans</CardTitle>
-                <CardDescription>Manage book checkouts and returns</CardDescription>
+                <CardTitle className="text-base">Registre des emprunts</CardTitle>
+                <CardDescription>Gérer les emprunts de livres</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button variant={showActive ? "default" : "outline"} onClick={() => setShowActive(!showActive)}>
-                  {showActive ? "Show All" : "Show Active Only"}
+                <Button size="sm" variant={showActive ? "default" : "outline"} onClick={() => setShowActive(!showActive)}>
+                  {showActive ? "Tous" : "Actifs"}
                 </Button>
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Loan
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Nouveau
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Create New Loan</DialogTitle>
-                      <DialogDescription>Enter the details for the new loan</DialogDescription>
+                      <DialogTitle>Créer un emprunt</DialogTitle>
+                      <DialogDescription>Entrez les détails de l'emprunt</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <div>
-                        <Label htmlFor="bookId">Book</Label>
-                        <Select
-                          value={loanForm.bookId}
-                          onValueChange={(value) => setLoanForm({ ...loanForm, bookId: value })}
-                          required
-                        >
+                        <Label htmlFor="bookId">Livre</Label>
+                        <Select value={loanForm.bookId} onValueChange={(value) => setLoanForm({ ...loanForm, bookId: value })} required>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a book" />
+                            <SelectValue placeholder="Sélectionner un livre" />
                           </SelectTrigger>
                           <SelectContent>
                             {books.map((book) => (
-                              <SelectItem key={book.id} value={book.id.toString()}>
-                                {book.title}
-                              </SelectItem>
+                              <SelectItem key={book.id} value={book.id.toString()}>{book.title}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label htmlFor="borrowerName">Borrower Name</Label>
+                        <Label htmlFor="borrowerName">Emprunteur</Label>
                         <Input
                           id="borrowerName"
                           value={loanForm.borrowerName}
                           onChange={(e) => setLoanForm({ ...loanForm, borrowerName: e.target.value })}
-                          placeholder="Enter borrower name"
+                          placeholder="Nom"
                           required
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button type="submit" className="flex-1">
-                          Create Loan
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setDialogOpen(false)
-                            resetForm()
-                          }}
-                        >
-                          Cancel
-                        </Button>
+                        <Button type="submit" className="flex-1">Créer</Button>
+                        <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>Annuler</Button>
                       </div>
                     </form>
                   </DialogContent>
@@ -272,56 +212,34 @@ export default function LoansPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading loans...</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">Chargement...</div>
             ) : loans.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No loans available. Create your first loan!</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">Aucun emprunt</div>
             ) : (
-              <div className="space-y-4">
-                {loans.map((loan) => (
-                  <Card key={loan.id}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-foreground text-balance">{getBookTitle(loan.bookId)}</h4>
-                            {loan.returnDate ? (
-                              <Badge variant="outline" className="bg-muted">
-                                Returned
-                              </Badge>
-                            ) : isOverdue(loan.dueDate) ? (
-                              <Badge variant="destructive">Overdue</Badge>
-                            ) : (
-                              <Badge className="bg-primary">Active</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">Borrower: {loan.borrowerName}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>Loaned: {formatDate(loan.loanDate)}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>Due: {formatDate(loan.dueDate)}</span>
-                            </div>
-                            {loan.returnDate && (
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>Returned: {formatDate(loan.returnDate)}</span>
-                              </div>
-                            )}
-                          </div>
+              <div className="space-y-2">
+                {loans.map((loan) => {
+                  const status = getStatus(loan)
+                  return (
+                    <div key={loan.id} className="flex items-center justify-between p-3 border rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{getBookTitle(loan.bookId)}</span>
+                          <span className={`text-xs ${status.className}`}>· {status.label}</span>
                         </div>
-                        {!loan.returnDate && (
-                          <Button size="sm" variant="outline" onClick={() => handleReturn(loan.id)}>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Return Book
-                          </Button>
-                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {loan.borrowerName} · {formatDate(loan.loanDate)} → {formatDate(loan.dueDate)}
+                          {loan.returnDate && ` · Retourné le ${formatDate(loan.returnDate)}`}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      {!loan.returnDate && (
+                        <Button size="sm" variant="outline" onClick={() => handleReturn(loan.id)}>
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Retourner
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

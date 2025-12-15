@@ -7,6 +7,10 @@ import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "books")
+@NamedEntityGraph(
+    name = "Book.withAuthor",
+    attributeNodes = @NamedAttributeNode("author")
+)
 public class Book {
 
     @Id
@@ -55,15 +59,35 @@ public class Book {
     public void setPublicationYear(Integer publicationYear) { this.publicationYear = publicationYear; }
 
     public Author getAuthor() { return author; }
-    public void setAuthor(Author author) { this.author = author; }
+    public void setAuthor(Author author) { 
+        this.author = author;
+        if (author != null) {
+            this.authorId = author.getId();
+            this.authorName = author.getName();
+        }
+    }
+    
+    @PostLoad
+    private void populateTransientFields() {
+        if (author != null) {
+            this.authorId = author.getId();
+            this.authorName = author.getName();
+        }
+    }
 
     public Long getAuthorId() {
-        return author != null ? author.getId() : authorId;
+        if (author != null && author.getId() != null) {
+            return author.getId();
+        }
+        return authorId;
     }
     public void setAuthorId(Long authorId) { this.authorId = authorId; }
 
     public String getAuthorName() {
-        return author != null ? author.getName() : authorName;
+        if (author != null && author.getName() != null) {
+            return author.getName();
+        }
+        return authorName;
     }
     public void setAuthorName(String authorName) { this.authorName = authorName; }
 }

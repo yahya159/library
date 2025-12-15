@@ -24,6 +24,9 @@ public class Loan {
     @Column(nullable = false)
     private LocalDate loanDate;
 
+    @Column(nullable = false)
+    private LocalDate dueDate;
+
     private LocalDate returnDate;
 
     private boolean returned = false;
@@ -34,9 +37,9 @@ public class Loan {
         this.bookId = bookId;
         this.borrowerName = borrowerName;
         this.loanDate = LocalDate.now();
+        this.dueDate = this.loanDate.plusDays(14);
     }
 
-    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -48,6 +51,9 @@ public class Loan {
 
     public LocalDate getLoanDate() { return loanDate; }
     public void setLoanDate(LocalDate loanDate) { this.loanDate = loanDate; }
+
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
     public LocalDate getReturnDate() { return returnDate; }
     public void setReturnDate(LocalDate returnDate) { this.returnDate = returnDate; }
